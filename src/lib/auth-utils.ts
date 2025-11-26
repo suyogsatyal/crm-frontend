@@ -1,39 +1,55 @@
 // src/lib/auth-utils.ts
 import { useAuthStore } from "@/stores/auth-store";
-import { Permission } from "@/constants/permissions";
-import { NavItem } from "@/constants/navigation";
 import { navigationConfig } from "@/constants/navigation";
+import { useMemo } from "react";
 
 export const usePermissions = () => {
+    // This is the CORRECT way — useMemo + shallow comparison
     const user = useAuthStore((state) => state.user);
 
-    const hasPermission = (required: string | string[]): boolean => {
-        if (!user?.permissions) return false;
-        if (user.isSuperAdmin) return true; // ← GOD MODE FOR SUPERADMIN
+    const safeUser = useMemo(() => {
+        if (!user) return null;
+        return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            branch: user.branch ? { name: user.branch } : null,
+            permissions: user.permissions || [],
+            isSuperAdmin: user.isSuperAdmin || false,
+        };
+    }, [
+        user?.id,
+        user?.name,
+        user?.email,
+        user?.role,
+        user?.branch,
+        user?.permissions,
+        user?.isSuperAdmin,
+    ]);
 
-        const req = Array.isArray(required) ? required : [required];
-        return req.some((perm) =>
-            user.permissions.includes(perm) ||
-            user.permissions.includes(perm.toLowerCase().replace(/_/g, '.'))
-        );
+    const hasPermission = (required: string[]) => {
+        if (!safeUser) return false;
+        if (safeUser.isSuperAdmin) return true;
+        return required.some(p => safeUser.permissions.includes(p));
     };
 
-    const canAccessNav = (item: NavItem): boolean => {
-        if (item.requiredPermissions.length === 0) return true;
-        const perms = item.requiredPermissions.map(p => (p as unknown as string));
-        return hasPermission(perms);
-    };
-
-    const getVisibleNav = (): NavItem[] => {
-        console.log("User Permissions:", user?.permissions);
+    const getVisibleNav = () => {
         return navigationConfig
-            .filter(canAccessNav)
-            .map((item) => ({
+            .filter(item =>
+                item.requiredPermissions.length === 0 || hasPermission(item.requiredPermissions)
+            )
+            .map(item => ({
                 ...item,
-                children: item.children?.filter(canAccessNav),
+                children: item.children?.filter(child =>
+                    child.requiredPermissions.length === 0 || hasPermission(child.requiredPermissions)
+                )
             }))
-            .filter((item) => !item.children || item.children.length > 0);
+            .filter(item => !item.children || item.children.length > 0);
     };
 
-    return { hasPermission, canAccessNav, getVisibleNav, user };
+    return {
+        getVisibleNav,
+        user: safeUser, // ← Now cached, no infinite loop
+    };
 };

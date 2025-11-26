@@ -33,12 +33,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         >
                             <Menu className="h-5 w-5" />
                         </Button> */}
-                        <div>
+                        {/* <div>
                             <h1 className="text-lg font-bold text-slate-800">PROJECT CONTRACT</h1>
                             <p className="text-xs text-slate-500 hidden sm:block">
                                 For Development of a Comprehensive Consultancy CRM System
                             </p>
-                        </div>
+                        </div> */}
                     </div>
                     <Topbar />
                 </header>
